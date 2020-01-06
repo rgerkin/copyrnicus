@@ -11,7 +11,7 @@ def read_requirements():
 
 
 setup(
-    name='neuronunit_opt',
+    name='copernicus',
     version='0.1',
     author='Rick Gerkin',
     author_email='rgerkin@asu.edu',

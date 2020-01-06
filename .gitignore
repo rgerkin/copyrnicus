@@ -1,3 +1,10 @@
 data/*
 figures/*
-
+examples/*.png
+examples/*.pdf
+examples/*.jpg
+*.pyc
+*.pyo
+*.ipynb_checkpoints*
+*.egg-info
+examples/.ipynb_checkpoints/*

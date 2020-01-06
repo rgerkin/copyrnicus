@@ -1,6 +1,9 @@
-numpy
-scipy
-matplotlib
-pandas
-neo
 igor
+matplotlib
+neo
+neuronunit
+numpy
+pandas
+scipy
+sciunit
+quantities
