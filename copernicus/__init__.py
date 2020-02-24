@@ -1,6 +1,7 @@
 """The copernicus python package"""
 
 import math
+import os
 import pathlib
 
 
@@ -170,6 +171,105 @@ def plot_spike_height_health(sweeps):
 class IBWModel(StaticModel):
     pass
 
+
+def get_frankensweeps(n_sweeps, recordings=None, protocols=['Depolarize']):
+    """
+    n_sweeps: Number of sweeps to get
+    recordings: List of recordings to use
+    protocol: List of protocols to use
+    """
+    if recordings is None:
+        recordings = get_recordings()
+    result = []
+    iteration = 0
+    while True:
+        iteration += 1
+        if iteration > 100:
+            print("Could not build even after 100 tries")
+            break
+        # Choose a random recording from the list
+        recording = np.random.choice(recordings)
+        # Choose a random protocol from the list
+        protocol = np.random.choice(protocols)
+        try:
+            # Get all the sweeps for that recordings and that protocol
+            sweeps = protocol_to_sweeps(recording, protocol)
+        except FileNotFoundError:
+            print("Could not find %s for %s" % (protocol, recording))
+            continue
+        # Choose a random sweep number from that set
+        sweep_num = np.random.choice(range(1, sweeps.shape[1]+1))
+        # Get a neo AnalogSignal for that sweep
+        vm = sweep_to_neo(sweeps, sweep_num)
+        # Add it to a list with information about where it came from
+        result.append((recording, protocol, sweep_num, vm))
+        if len(result) >= n_sweeps:
+            break
+    return result
+
+
+def plot_frankensweeps(fsweeps):
+    fig, ax = plt.subplots(math.ceil(len(fsweeps)/3), 3, figsize=(10, 8), sharex=True)
+    for i, (recording, protocol, sweep_num, vm) in enumerate(fsweeps):
+        ax.flat[i].plot(vm.times, vm)
+        ax.flat[i].set_title('%s %s %d' % (recording, protocol, sweep_num), fontsize=8)
+        if i > len(fsweeps)-4:
+            ax.flat[i].set_xlabel('Time (s)')
+        if i % 3 == 0:
+            ax.flat[i].set_ylabel('Vm (mV)')
+    plt.tight_layout()
+    
+    
+def write_frankensweeps(fsweeps, name, path=None):
+    """
+    fsweeps: A collection of frankensweeps
+    name: A name for this collection
+    path: A location to write them to; default to DATA
+    """
+    if path is None:
+        path = DATA
+    path = path / 'frankensweeps' / name
+    path.mkdir(parents=True, exist_ok=True)
+    for recording, protocol, sweep, vm in fsweeps:
+        name = '%s_%s_%s' % (recording, protocol, sweep)
+        series = pd.DataFrame(vm, index=vm.times, columns=[name])[name]
+        series.index.name = 'Time (s)'
+        series.name = 'Vm (mV)'
+        series.to_csv(path / (name+'.csv'), header=True)
+        
+
+def check_path_mod_time(path, extensions=[], last_time=0, alert=False):
+    """Return the last modification time of any file located in `path`
+    or at any level below it"""
+    path = pathlib.Path(path)
+    mod_time = -1
+    last_time_ = last_time
+    for x in path.iterdir():
+        if x.is_dir():
+            mod_time = check_path_mod_time(x, extensions=extensions,
+                                           last_time=last_time_, alert=alert)
+        elif not extensions or any([str(x).endswith(ext) for ext in extensions]):
+            mod_time = os.path.getmtime(x)  # Modification time of file `x`
+        if not x.is_dir() and mod_time > last_time:
+            if alert:
+                print("File %s modified" % x)
+                # Update last modification time for this path
+            last_time_ = max(last_time_, mod_time)
+    return last_time_
+        
+
+def get_path_monitor(path, extensions=[]):
+    """Return a timer that continuously checks for modifications to file in `path`
+    or at any level below it"""
+    from copernicus import timer
+    curr_last_mod_time = check_path_mod_time(path, extensions=extensions)
+    monitor = timer.Timer(check_path_mod_time,
+                          args=(path,),
+                          kwargs={'extensions': extensions,
+                                  'last_time': curr_last_mod_time,
+                                  'alert': False})
+    monitor.start()
+    return monitor
     
 #### Plotly support (experimental) ####
 # Requires:
