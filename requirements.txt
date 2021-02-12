@@ -4,6 +4,8 @@ neo
 neuronunit
 numpy
 pandas
+pyneuroml
+seaborn
 scipy
 sciunit
 quantities
